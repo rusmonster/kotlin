@@ -89,7 +89,7 @@ public class KotlinCoreEnvironment private(
         configuration: CompilerConfiguration
 ) {
 
-    private val projectEnvironment: JavaCoreProjectEnvironment = object : JavaCoreProjectEnvironment(parentDisposable, applicationEnvironment) {
+    private val projectEnvironment: JavaCoreProjectEnvironment = object : KotlinCoreProjectEnvironment(parentDisposable, applicationEnvironment) {
         override fun preregisterServices() {
             registerProjectExtensionPoints(Extensions.getArea(getProject()))
         }

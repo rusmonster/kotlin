@@ -87,8 +87,7 @@ public class JavaClassFinderImpl implements JavaClassFinder {
     @Override
     public JavaClass findClass(@NotNull ClassId classId) {
         FqName fqName = classId.asSingleFqName();
-
-        PsiClass psiClass = javaFacade.findClass(fqName.asString(), javaSearchScope);
+        PsiClass psiClass = javaFacade.findClass(classId, javaSearchScope);
         if (psiClass == null) return null;
 
         JavaClassImpl javaClass = new JavaClassImpl(psiClass);
