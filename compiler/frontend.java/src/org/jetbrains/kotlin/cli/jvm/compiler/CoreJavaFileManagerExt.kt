@@ -20,10 +20,8 @@ import com.intellij.core.CoreJavaFileManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiClass
-import com.intellij.psi.PsiClassOwner
-import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiManager
+import com.intellij.psi.*
+import com.intellij.psi.impl.file.PsiPackageImpl
 import com.intellij.psi.impl.file.impl.JavaFileManager
 import com.intellij.psi.search.GlobalSearchScope
 import kotlin.Function1
@@ -44,7 +42,7 @@ public class CoreJavaFileManagerExt(private var packagesCache: PackagesCache?, p
 
     public fun findClass(classId: ClassId, scope: GlobalSearchScope): PsiClass? {
         val classNameWithInnerClasses = classId.getRelativeClassName().asString()
-        return packagesCache!!.searchPackages<PsiClass>(classId.getPackageFqName()) { dir ->
+        return packagesCache!!.searchPackages<PsiClass>(classId.getPackageFqName(), cacheByClassId = classId) { dir ->
             findClassGivenPackage(scope, dir, classNameWithInnerClasses)
         }
     }
@@ -97,7 +95,19 @@ public class CoreJavaFileManagerExt(private var packagesCache: PackagesCache?, p
         myClasspath.add(root)
     }
 
+    override fun findPackage(packageName: String): PsiPackage? {
+        var found = false
+        packagesCache!!.searchPackages(FqName(packageName)) {
+            found = true
+        }
+        if (found) {
+            return PsiPackageImpl(myPsiManager, packageName)
+        }
+        return null
+    }
+
     companion object {
+        //TODO_R:
         private val LOG = Logger.getInstance("#com.intellij.core.CoreJavaFileManager")
 
         private fun findClassInPsiFile(classNameWithInnerClassesDotSeparated: String, file: PsiClassOwner): PsiClass? {

@@ -18,13 +18,19 @@ package org.jetbrains.kotlin.cli.jvm.compiler
 
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.containers.IntArrayList
+import com.intellij.util.containers.SLRUCache
+import com.intellij.util.containers.SLRUMap
 import gnu.trove.TIntArrayList
+import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import java.util.ArrayList
 import java.util.HashMap
 import kotlin.properties.Delegates
 
-class PackagesCache(private val classpath: List<VirtualFile>) {
+class PackagesCache(val classpath: List<VirtualFile>) {
+
+    private var lastSearched: ClassId? = null
+    private var lastFoundDir: VirtualFile? = null
 
     //these fields are computed based on classpath which is filled in later
     private val maxIndex: Int by Delegates.lazy { classpath.size() }
@@ -40,7 +46,10 @@ class PackagesCache(private val classpath: List<VirtualFile>) {
         }
     }
 
-    fun <T : Any> searchPackages(packageFqName: FqName, handler: (VirtualFile) -> T?): T? {
+    fun <T : Any> searchPackages(packageFqName: FqName, cacheByClassId: ClassId? = null, handler: (VirtualFile) -> T?): T? {
+        if (cacheByClassId == lastSearched) {
+            return lastFoundDir?.let(handler)
+        }
         val packagesPath = packageFqName.pathSegments().map { it.getIdentifier() }
         if (packagesPath.isEmpty()) {
             classpath.forEach { file ->
@@ -54,18 +63,24 @@ class PackagesCache(private val classpath: List<VirtualFile>) {
         var lastMaxIndex = -1
         for (cacheIndex in (caches.size() - 1) downTo 0) {
             val cache = caches[cacheIndex]
-            for (i in 0..cache.classpathIndices.size() - 1) {
+            for (i in cache.classpathIndices.size().indices) {
                 val classpathIndex = cache.classpathIndices[i]
                 if (classpathIndex <= lastMaxIndex) continue
 
-                val file = travelPath(classpathIndex, packagesPath, cacheIndex, caches) ?: continue
-                val result = handler(file)
+                val dir = travelPath(classpathIndex, packagesPath, cacheIndex, caches) ?: continue
+                val result = handler(dir)
                 if (result != null) {
+                    if (cacheByClassId != null) {
+                        lastFoundDir = dir
+                        lastSearched = cacheByClassId
+                    }
                     return result
                 }
             }
             lastMaxIndex = cache.classpathIndices.lastOrNull() ?: lastMaxIndex
         }
+        lastFoundDir = null
+        lastSearched = cacheByClassId
         return null
     }
 

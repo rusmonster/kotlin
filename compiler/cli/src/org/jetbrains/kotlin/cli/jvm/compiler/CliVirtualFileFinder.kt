@@ -43,8 +43,8 @@ public class CliVirtualFileFinder(private val packagesCache: PackagesCache) : Vi
         //TODO_R: this is ridiculous
         val jvmClassName = JvmClassName.byInternalName(internalName)
         val packageFqName = jvmClassName.getPackageFqName()
-        val fullNameSegments = jvmClassName.getFqNameForClassNameWithoutDollars().pathSegments()
-        val relativeClassName = FqNameUnsafe.fromSegments(fullNameSegments.subList(packageFqName.pathSegments().size(), fullNameSegments.size()))
+        val fullNameSegments = jvmClassName.getFqNameForClassNameWithoutDollars().pathSegments().map { it.asString() }
+        val relativeClassName = FqName.fromSegments(fullNameSegments.subList(packageFqName.pathSegments().size(), fullNameSegments.size()))
         val classId = ClassId(packageFqName, relativeClassName, false)
 
         return findVirtualFileByClassId(classId)
@@ -52,7 +52,7 @@ public class CliVirtualFileFinder(private val packagesCache: PackagesCache) : Vi
 
     private fun findVirtualFileByClassId(classId: ClassId): VirtualFile? {
         val relativeClassName = classId.getRelativeClassName().asString().replace('.', '$')
-        return packagesCache.searchPackages(classId.getPackageFqName()) {
+        return packagesCache.searchPackages(classId.getPackageFqName(), cacheByClassId = classId) {
             it.findChild("$relativeClassName.class")?.let {
                 if (it.isValid()) it else null
             }
