@@ -373,7 +373,7 @@ open class KotlinAndroidPlugin [Inject] (val scriptHandler: ScriptHandler, val t
                 javaSourceList.add(variant.getAidlCompile().getSourceOutputDir())
                 javaSourceList.add(variant.getRenderscriptCompile().getSourceOutputDir())
 
-                if (variant is ApkVariant) {
+                if (variant is ApkVariant && variant !is TestVariant) {
                     for (flavourName in AndroidGradleWrapper.getProductFlavorsNames(variant)) {
                         val defaultFlavourSourceSetName = flavourName + buildTypeSourceSetName.capitalize()
                         val defaultFlavourSourceSet = sourceSets.findByName(defaultFlavourSourceSetName)
