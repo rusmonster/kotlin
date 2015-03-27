@@ -17,38 +17,31 @@
 package org.jetbrains.kotlin.codegen.intrinsics
 
 import com.intellij.psi.PsiElement
-import org.jetbrains.kotlin.codegen.CallableMethod
-import org.jetbrains.org.objectweb.asm.Type
 import org.jetbrains.kotlin.codegen.ExpressionCodegen
 import org.jetbrains.kotlin.codegen.ExtendedCallable
 import org.jetbrains.kotlin.codegen.StackValue
-import org.jetbrains.kotlin.codegen.context.CodegenContext
 import org.jetbrains.kotlin.codegen.state.GenerationState
 import org.jetbrains.kotlin.descriptors.FunctionDescriptor
+import org.jetbrains.kotlin.psi.JetCallExpression
 import org.jetbrains.kotlin.psi.JetExpression
+import org.jetbrains.kotlin.resolve.calls.model.ResolvedCall
+import org.jetbrains.org.objectweb.asm.Type
+import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
 
-public class StringGetChar : LazyIntrinsicMethod() {
-    override fun generateImpl(
-            codegen: ExpressionCodegen,
-            returnType: Type,
-            element: PsiElement?,
-            arguments: List<JetExpression>,
-            receiver: StackValue
-    ): StackValue {
-        return StackValue.operation(Type.CHAR_TYPE) {
-            if (receiver != StackValue.none()) {
-                receiver.put(receiver.type, it)
+public class NewArray : LazyIntrinsicMethod() {
+    override fun generateImpl(codegen: ExpressionCodegen, returnType: Type, element: PsiElement?, arguments: List<JetExpression>, receiver: StackValue): StackValue {
+        return codegen.generateNewArray(element as JetCallExpression)
+    }
+
+    override fun toCallable(fd: FunctionDescriptor, isSuper: Boolean, resolvedCall: ResolvedCall<*>, codegen: ExpressionCodegen): ExtendedCallable {
+        val jetType = resolvedCall.getResultingDescriptor().getReturnType()!!
+        val type = codegen.getState().getTypeMapper().mapType(jetType)
+        return object : IntrinsicCallable(type, listOf(Type.INT_TYPE), null, null) {
+            override fun invokeIntrinsic(v: InstructionAdapter) {
+                codegen.newArrayInstruction(jetType)
             }
-            if (!arguments.isEmpty()) {
-                codegen.gen(arguments.first()).put(Type.INT_TYPE, it)
-            }
-            it.invokevirtual("java/lang/String", "charAt", "(I)C", false)
         }
     }
 
-    override fun toCallable(method: CallableMethod): ExtendedCallable {
-        return IntrinsicCallable.create(method) {
-            it.invokevirtual("java/lang/String", "charAt", "(I)C", false)
-        }
-    }
 }
+

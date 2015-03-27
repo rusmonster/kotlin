@@ -18,39 +18,40 @@ package org.jetbrains.kotlin.codegen.intrinsics
 
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.codegen.*
-import org.jetbrains.org.objectweb.asm.Type
+import org.jetbrains.kotlin.lexer.JetTokens
+import org.jetbrains.kotlin.psi.JetBinaryExpression
 import org.jetbrains.kotlin.psi.JetCallExpression
 import org.jetbrains.kotlin.psi.JetExpression
-import org.jetbrains.kotlin.lexer.JetTokens
+import org.jetbrains.org.objectweb.asm.Type
 
-import org.jetbrains.kotlin.codegen.AsmUtil.genEqualsForExpressionsOnStack
 import org.jetbrains.kotlin.resolve.jvm.AsmTypes.OBJECT_TYPE
 
-public class Equals : LazyIntrinsicMethod() {
-    override fun generateImpl(
-            codegen: ExpressionCodegen,
-            returnType: Type,
-            element: PsiElement?,
-            arguments: List<JetExpression>,
-            receiver: StackValue
-    ): StackValue {
-        val leftExpr: StackValue
-        val rightExpr: JetExpression
+public class IdentityEquals : LazyIntrinsicMethod() {
+    override fun generateImpl(codegen: ExpressionCodegen, returnType: Type, element: PsiElement?, arguments: List<JetExpression>, receiver: StackValue): StackValue {
+        val left: StackValue
+        val right: StackValue
         if (element is JetCallExpression) {
-            leftExpr = StackValue.coercion(receiver, OBJECT_TYPE)
-            rightExpr = arguments.get(0)
+            left = receiver
+            right = codegen.gen(arguments.get(0))
         }
         else {
-            leftExpr = codegen.genLazy(arguments.get(0), OBJECT_TYPE)
-            rightExpr = arguments.get(1)
+            assert(element is JetBinaryExpression)
+            val e = element as JetBinaryExpression
+            left = codegen.gen(e.getLeft())
+            right = codegen.gen(e.getRight())
         }
+        return StackValue.cmp(JetTokens.EQEQEQ, OBJECT_TYPE, left, right)
+    }
 
-        return genEqualsForExpressionsOnStack(JetTokens.EQEQ, leftExpr, codegen.genLazy(rightExpr, OBJECT_TYPE))
+
+    override fun supportCallable(): Boolean {
+        return false
     }
 
     override fun toCallable(method: CallableMethod): ExtendedCallable {
         return IntrinsicCallable.binaryIntrinsic(method.getReturnType(), OBJECT_TYPE, nullOrObject(method.getThisType()), nullOrObject(method.getReceiverClass())) {
-            AsmUtil.genAreEqualCall(it)
+            v -> v.invokestatic(IntrinsicMethods.INTRINSICS_CLASS_NAME, "areEqual", "(Ljava/lang/Object;Ljava/lang/Object;)Z", false)
+            AsmUtil.genAreEqualCall(v)
         }
     }
 

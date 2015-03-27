@@ -21,35 +21,27 @@ import org.jetbrains.kotlin.codegen.ExpressionCodegen
 import org.jetbrains.kotlin.codegen.StackValue
 import org.jetbrains.kotlin.psi.JetExpression
 import org.jetbrains.org.objectweb.asm.Type
-import org.jetbrains.kotlin.codegen.AsmUtil.genIncrement
+
 import org.jetbrains.kotlin.codegen.AsmUtil.isPrimitive
 import org.jetbrains.kotlin.codegen.CallableMethod
 import org.jetbrains.kotlin.codegen.ExtendedCallable
 
-public class Increment(private val myDelta: Int) : LazyIntrinsicMethod() {
-
+public class UnaryPlus : LazyIntrinsicMethod() {
     override fun generateImpl(codegen: ExpressionCodegen, returnType: Type, element: PsiElement?, arguments: List<JetExpression>, receiver: StackValue): StackValue {
-        assert(isPrimitive(returnType)) { "Return type of Increment intrinsic should be of primitive type : " + returnType }
+        assert(isPrimitive(returnType)) { "Return type of UnaryPlus intrinsic should be of primitive type : " + returnType }
 
-        if (arguments.size() > 0) {
-            val operand = arguments.get(0)
-            val stackValue = codegen.genQualified(receiver, operand)
-            if (stackValue is StackValue.Local && Type.INT_TYPE == stackValue.type) {
-                return StackValue.preIncrementForLocalVar(stackValue.index, myDelta)
-            }
-            else {
-                return StackValue.preIncrement(returnType, stackValue, myDelta, this, null, codegen)
-            }
+        if (receiver != StackValue.none()) {
+            return receiver
         }
         else {
-            return StackValue.operation(returnType) {
-                receiver.put(returnType, it)
-                genIncrement(returnType, myDelta, it)
-            }
+            assert(!arguments.isEmpty())
+            return codegen.gen(arguments.get(0))
         }
     }
 
-    override fun supportCallable(): Boolean {
-        return false
+    override fun toCallable(method: CallableMethod): ExtendedCallable {
+        return UnaryIntrinsic(method, needPrimitiveCheck = true) {
+            //nothing
+        }
     }
 }

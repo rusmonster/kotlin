@@ -18,37 +18,38 @@ package org.jetbrains.kotlin.codegen.intrinsics
 
 import com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.codegen.CallableMethod
-import org.jetbrains.org.objectweb.asm.Type
 import org.jetbrains.kotlin.codegen.ExpressionCodegen
 import org.jetbrains.kotlin.codegen.ExtendedCallable
 import org.jetbrains.kotlin.codegen.StackValue
-import org.jetbrains.kotlin.codegen.context.CodegenContext
-import org.jetbrains.kotlin.codegen.state.GenerationState
-import org.jetbrains.kotlin.descriptors.FunctionDescriptor
 import org.jetbrains.kotlin.psi.JetExpression
+import org.jetbrains.org.objectweb.asm.Type
+import org.jetbrains.org.objectweb.asm.commons.InstructionAdapter
 
-public class StringGetChar : LazyIntrinsicMethod() {
-    override fun generateImpl(
-            codegen: ExpressionCodegen,
-            returnType: Type,
-            element: PsiElement?,
-            arguments: List<JetExpression>,
-            receiver: StackValue
-    ): StackValue {
-        return StackValue.operation(Type.CHAR_TYPE) {
-            if (receiver != StackValue.none()) {
-                receiver.put(receiver.type, it)
-            }
-            if (!arguments.isEmpty()) {
-                codegen.gen(arguments.first()).put(Type.INT_TYPE, it)
-            }
-            it.invokevirtual("java/lang/String", "charAt", "(I)C", false)
-        }
+import org.jetbrains.kotlin.codegen.AsmUtil.correctElementType
+
+public class ArraySet : IntrinsicMethod() {
+    override fun generateImpl(codegen: ExpressionCodegen, v: InstructionAdapter, returnType: Type, element: PsiElement?, arguments: List<JetExpression>, receiver: StackValue): Type {
+        receiver.put(receiver.type, v)
+        val type = correctElementType(receiver.type)
+
+        codegen.gen(arguments.get(0), Type.INT_TYPE)
+        codegen.gen(arguments.get(1), type)
+
+        v.astore(type)
+        return Type.VOID_TYPE
+    }
+
+    override fun supportCallable(): Boolean {
+        return true
     }
 
     override fun toCallable(method: CallableMethod): ExtendedCallable {
-        return IntrinsicCallable.create(method) {
-            it.invokevirtual("java/lang/String", "charAt", "(I)C", false)
+        val type = correctElementType(method.getThisType())
+        return object: IntrinsicCallable(Type.VOID_TYPE, listOf(Type.INT_TYPE, type), method.getThisType(), method.getReceiverClass()) {
+            override fun invokeIntrinsic(v: InstructionAdapter) {
+                v.astore(type)
+            }
+
         }
     }
 }
