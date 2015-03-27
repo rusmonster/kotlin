@@ -130,12 +130,12 @@ public class KotlinCoreEnvironment private(
 
         JetScriptDefinitionProvider.getInstance(project).addScriptDefinitions(configuration.getList(CommonConfigurationKeys.SCRIPT_DEFINITIONS_KEY))
 
-        project.registerService(javaClass<VirtualFileFinderFactory>(), CliVirtualFileFinderFactory(classPath))
+        project.registerService(javaClass<VirtualFileFinderFactory>(), CliVirtualFileFinderFactory(PackagesCache(listOf())))
 
         ExternalDeclarationsProvider.registerExtensionPoint(project)
         ExpressionCodegenExtension.registerExtensionPoint(project)
 
-        for (registrar in configuration.getList(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS)) {
+        for (registrar in configuration.getList<ComponentRegistrar>(ComponentRegistrar.PLUGIN_COMPONENT_REGISTRARS)) {
             registrar.registerProjectComponents(project, configuration)
         }
     }
