@@ -16,10 +16,15 @@
 
 package org.jetbrains.kotlin.cli.jvm.compiler
 
+import com.intellij.core.CorePackageIndex
 import com.intellij.core.JavaCoreApplicationEnvironment
 import com.intellij.core.JavaCoreProjectEnvironment
+import com.intellij.mock.MockFileIndexFacade
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.components.ServiceManager
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
+import java.io.File
 
 open class KotlinCoreProjectEnvironment(
         private val packagesCache: PackagesCache,
@@ -28,4 +33,19 @@ open class KotlinCoreProjectEnvironment(
 )
 : JavaCoreProjectEnvironment(disposable, applicationEnvironment) {
     override fun createCoreFileManager() = CoreJavaFileManagerExt(packagesCache, PsiManager.getInstance(getProject()))
+
+    public fun addRootToClasspath(file: VirtualFile) {
+        val packageIndex = ServiceManager.getService(getProject(), javaClass<CorePackageIndex>())
+        packageIndex.addToClasspath(file)
+
+        val fileIndexFacade = ServiceManager.getService(getProject(), javaClass<MockFileIndexFacade>())
+        fileIndexFacade.addLibraryRoot(file)
+
+        val fileManager = ServiceManager.getService(getProject(), javaClass<CoreJavaFileManagerExt>())
+        fileManager.addToClasspath(file)
+    }
+
+    public fun addJavaSourceRoot(file: VirtualFile) {
+        addRootToClasspath(file)
+    }
 }

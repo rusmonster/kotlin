@@ -29,6 +29,7 @@ public class JVMConfigurationKeys {
     }
 
     public static final CompilerConfigurationKey<List<File>> ANNOTATIONS_PATH_KEY = CompilerConfigurationKey.create("annotations path");
+    public static final CompilerConfigurationKey<List<File>> JAVA_SOURCE_ROOTS_KEY = CompilerConfigurationKey.create("java source roots");
 
     public static final CompilerConfigurationKey<List<AnalyzerScriptParameter>> SCRIPT_PARAMETERS =
             CompilerConfigurationKey.create("script");
