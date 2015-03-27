@@ -228,6 +228,14 @@ public class SequenceTest {
     }
 
 
+    test fun streamSequenceToList() {
+        val seq1 = streamSequence(1) { streamSequence(2) { streamSequence() } }
+        assertEquals(listOf(1, 2), seq1.toList())
+
+        val seq2 = streamSequence("prep") { sequenceOf("abc", "def") }
+        assertEquals(listOf("prep", "abc", "def"), seq2.toList())
+    }
+
     /*
     test fun pairIterator() {
         val pairStr = (fibonacci() zip fibonacci().map { i -> i*2 }).joinToString(limit = 10)

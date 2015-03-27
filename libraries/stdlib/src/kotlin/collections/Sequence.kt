@@ -1,6 +1,7 @@
 package kotlin
 
 import java.util.NoSuchElementException
+import kotlin.properties.Delegates
 
 deprecated("Use Sequence<T> instead.")
 public trait Stream<out T> {
@@ -437,6 +438,98 @@ public class DropWhileSequence<T>(private val sequence: Sequence<T>,
         }
     }
 }
+
+/**
+ * Sequence like scala's Stream
+ */
+public abstract class StreamSequence<out T> internal () : Sequence<T> {
+    abstract val head: T
+    abstract val tail: Sequence<T>
+    abstract fun isEmpty(): Boolean
+
+
+    public object Empty: StreamSequence<Nothing>() {
+        override val head: Nothing
+            get() = throw NoSuchElementException()
+        override val tail: Sequence<Nothing>
+            get() = throw UnsupportedOperationException()
+
+        override fun isEmpty(): Boolean = true
+        override fun iterator(): Iterator<Nothing> = object : Iterator<Nothing> {
+            override fun next(): Nothing = throw NoSuchElementException()
+            override fun hasNext(): Boolean = false
+        }
+
+    }
+
+    public class Cons<out T>(override val head: T, private val getTail: ()-> Sequence<T>): StreamSequence<T>() {
+        override fun isEmpty(): Boolean = false
+        override fun iterator(): Iterator<T> = ConsIterator<T>(head, { tail })
+
+        override val tail: Sequence<T> by Delegates.lazy(getTail)
+
+        private class ConsIterator<T>(head: T, var getTail: () -> Sequence<T>) : Iterator<T> {
+            var nextItem: T? = head
+            var nextState: Int = 1  // -1 for unknown, -2 for delegating to tail iterator, 0 for done, 1 for continue
+            var delegatedIterator: Iterator<T>? = null
+
+            private fun calcNext() {
+                val tail = getTail()
+                when (tail) {
+                    is Empty -> {
+                        nextState = 0
+                    }
+                    is Cons -> {
+                        nextState = 1
+                        nextItem = tail.head
+                        getTail = { tail.tail }
+                    }
+                    else -> {
+                        delegatedIterator = tail.iterator()
+                        nextState = -2
+                    }
+                }
+            }
+
+            override fun next(): T {
+                if (nextState == -1)
+                    calcNext()
+                if (nextState == -2)
+                    return checkNotNull(delegatedIterator).next()
+
+                if (nextState == 0)
+                    throw NoSuchElementException()
+
+                check(nextState == 1)
+
+                val result = nextItem as T
+                // Clean next to avoid keeping reference on yielded instance
+                nextState = -1
+                nextItem = null
+                return result
+            }
+
+            override fun hasNext(): Boolean {
+                if (nextState == -1)
+                    calcNext()
+                if (nextState == -2) {
+                    val hasNext = checkNotNull(delegatedIterator).hasNext()
+                    if (!hasNext) {
+                        nextState = 0
+                        delegatedIterator = null
+                    }
+                    return hasNext
+                }
+                return nextState == 1
+            }
+
+        }
+    }
+}
+
+public fun <T> streamSequence(initialValue: T, nextSequence: () -> Sequence<T>): StreamSequence<T> = StreamSequence.Cons(initialValue, nextSequence)
+
+public fun streamSequence(): StreamSequence<Nothing> = StreamSequence.Empty
 
 /**
  * A sequence which repeatedly calls the specified [producer] function and returns its return values, until
