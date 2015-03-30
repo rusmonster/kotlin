@@ -39,17 +39,6 @@ public class CliVirtualFileFinder(private val packagesCache: PackagesCache) : Vi
         return KotlinBinaryClassCache.getKotlinBinaryClass(file)
     }
 
-    override fun findVirtualFile(internalName: String): VirtualFile? {
-        //TODO_R: this is ridiculous
-        val jvmClassName = JvmClassName.byInternalName(internalName)
-        val packageFqName = jvmClassName.getPackageFqName()
-        val fullNameSegments = jvmClassName.getFqNameForClassNameWithoutDollars().pathSegments().map { it.asString() }
-        val relativeClassName = FqName.fromSegments(fullNameSegments.subList(packageFqName.pathSegments().size(), fullNameSegments.size()))
-        val classId = ClassId(packageFqName, relativeClassName, false)
-
-        return findVirtualFileByClassId(classId)
-    }
-
     private fun findVirtualFileByClassId(classId: ClassId): VirtualFile? {
         val relativeClassName = classId.getRelativeClassName().asString().replace('.', '$')
         return packagesCache.searchPackages(classId.getPackageFqName(), cacheByClassId = classId) {
