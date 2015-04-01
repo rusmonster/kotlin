@@ -1448,6 +1448,7 @@ public class JetParsingTestGenerated extends AbstractJetParsingTest {
         @TestMetadata("compiler/testData/psi/recovery")
         @TestDataPath("$PROJECT_ROOT")
         @InnerTestClasses({
+                Recovery.AnnotationsOnLocalDeclaration.class,
                 Recovery.Objects.class,
                 Recovery.QualifiedExpression.class,
         })
@@ -1659,6 +1660,45 @@ public class JetParsingTestGenerated extends AbstractJetParsingTest {
             public void testWithWithoutInAndMultideclaration() throws Exception {
                 String fileName = JetTestUtils.navigationMetadata("compiler/testData/psi/recovery/WithWithoutInAndMultideclaration.kt");
                 doParsingTest(fileName);
+            }
+
+            @TestMetadata("compiler/testData/psi/recovery/annotationsOnLocalDeclaration")
+            @TestDataPath("$PROJECT_ROOT")
+            @RunWith(JUnit3RunnerWithInners.class)
+            public static class AnnotationsOnLocalDeclaration extends AbstractJetParsingTest {
+                public void testAllFilesPresentInAnnotationsOnLocalDeclaration() throws Exception {
+                    JetTestUtils.assertAllTestsPresentByMetadata(this.getClass(), new File("compiler/testData/psi/recovery/annotationsOnLocalDeclaration"), Pattern.compile("^(.*)\\.kts?$"), true);
+                }
+
+                @TestMetadata("basic.kt")
+                public void testBasic() throws Exception {
+                    String fileName = JetTestUtils.navigationMetadata("compiler/testData/psi/recovery/annotationsOnLocalDeclaration/basic.kt");
+                    doParsingTest(fileName);
+                }
+
+                @TestMetadata("funs.kt")
+                public void testFuns() throws Exception {
+                    String fileName = JetTestUtils.navigationMetadata("compiler/testData/psi/recovery/annotationsOnLocalDeclaration/funs.kt");
+                    doParsingTest(fileName);
+                }
+
+                @TestMetadata("separatedWithSemicolon.kt")
+                public void testSeparatedWithSemicolon() throws Exception {
+                    String fileName = JetTestUtils.navigationMetadata("compiler/testData/psi/recovery/annotationsOnLocalDeclaration/separatedWithSemicolon.kt");
+                    doParsingTest(fileName);
+                }
+
+                @TestMetadata("severalLines.kt")
+                public void testSeveralLines() throws Exception {
+                    String fileName = JetTestUtils.navigationMetadata("compiler/testData/psi/recovery/annotationsOnLocalDeclaration/severalLines.kt");
+                    doParsingTest(fileName);
+                }
+
+                @TestMetadata("softKeyword.kt")
+                public void testSoftKeyword() throws Exception {
+                    String fileName = JetTestUtils.navigationMetadata("compiler/testData/psi/recovery/annotationsOnLocalDeclaration/softKeyword.kt");
+                    doParsingTest(fileName);
+                }
             }
 
             @TestMetadata("compiler/testData/psi/recovery/objects")

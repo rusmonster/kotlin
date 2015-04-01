@@ -37,6 +37,9 @@ import static org.jetbrains.kotlin.parsing.JetParsing.AnnotationParsingMode.REGU
 import static org.jetbrains.kotlin.parsing.JetParsing.AnnotationParsingMode.REGULAR_ANNOTATIONS_ONLY_WITH_BRACKETS;
 
 public class JetExpressionParsing extends AbstractJetParsing {
+    private static final TokenSet LOCAL_DECLARATION_START = TokenSet.orSet(MODIFIER_KEYWORDS,
+                                                                           TokenSet.create(CLASS_KEYWORD, OBJECT_KEYWORD, FUN_KEYWORD,
+                                                                                           VAL_KEYWORD, VAR_KEYWORD, TYPE_ALIAS_KEYWORD));
     private static final TokenSet WHEN_CONDITION_RECOVERY_SET = TokenSet.create(RBRACE, IN_KEYWORD, NOT_IN, IS_KEYWORD, NOT_IS, ELSE_KEYWORD);
     private static final TokenSet WHEN_CONDITION_RECOVERY_SET_WITH_ARROW = TokenSet.create(RBRACE, IN_KEYWORD, NOT_IN, IS_KEYWORD, NOT_IS, ELSE_KEYWORD, ARROW, DOT);
 
@@ -135,7 +138,7 @@ public class JetExpressionParsing extends AbstractJetParsing {
                     TokenSet.create(EOL_OR_SEMICOLON));
 
     /*package*/ static final TokenSet EXPRESSION_FOLLOW = TokenSet.create(
-            SEMICOLON, ARROW, COMMA, RBRACE, RPAR, RBRACKET
+            EOL_OR_SEMICOLON, ARROW, COMMA, RBRACE, RPAR, RBRACKET, CLASS_KEYWORD, OBJECT_KEYWORD, VAR_KEYWORD, VAL_KEYWORD
     );
 
     @SuppressWarnings({"UnusedDeclaration"})
@@ -342,7 +345,7 @@ public class JetExpressionParsing extends AbstractJetParsing {
         //        System.out.println("pre at "  + myBuilder.getTokenText());
 
         if (at(LBRACKET)) {
-            if (!parseLocalDeclaration()) {
+            if (!parseLocalDeclaration(false)) {
                 PsiBuilder.Marker expression = mark();
                 myJetParsing.parseAnnotations(REGULAR_ANNOTATIONS_ONLY_WITH_BRACKETS);
                 parsePrefixExpression();
@@ -619,9 +622,8 @@ public class JetExpressionParsing extends AbstractJetParsing {
         else if (at(DO_KEYWORD)) {
             parseDoWhile();
         }
-        else if (atSet(CLASS_KEYWORD, FUN_KEYWORD, VAL_KEYWORD,
-                       VAR_KEYWORD, TYPE_ALIAS_KEYWORD)) {
-            parseLocalDeclaration();
+        else if (at(FUN_KEYWORD)) {
+            parseLocalDeclaration(false);
         }
         else if (at(FIELD_IDENTIFIER)) {
             parseSimpleNameExpression();
@@ -973,10 +975,23 @@ public class JetExpressionParsing extends AbstractJetParsing {
     /*
      * modifiers declarationRest
      */
-    private boolean parseLocalDeclaration() {
+    private boolean parseLocalDeclaration(boolean allowShortAnnotationsWithError) {
         PsiBuilder.Marker decl = mark();
         JetParsing.ModifierDetector detector = new JetParsing.ModifierDetector();
-        myJetParsing.parseModifierList(detector, REGULAR_ANNOTATIONS_ONLY_WITH_BRACKETS);
+
+        if (allowShortAnnotationsWithError) {
+            if (myJetParsing.parseModifierList(detector, REGULAR_ANNOTATIONS_ALLOW_SHORTS)) {
+                decl.error("Only annotations in brackets ('[', ']') are allowed for local declarations");
+                decl = mark();
+            }
+            else {
+                decl.rollbackTo();
+                return false;
+            }
+        }
+        else {
+            myJetParsing.parseModifierList(detector, REGULAR_ANNOTATIONS_ONLY_WITH_BRACKETS);
+        }
 
         IElementType declType = parseLocalDeclarationRest(detector.isEnumDetected());
 
@@ -1260,9 +1275,26 @@ public class JetExpressionParsing extends AbstractJetParsing {
             if (!atSet(STATEMENT_FIRST)) {
                 errorAndAdvance("Expecting an element");
             }
+
             if (atSet(STATEMENT_FIRST)) {
+                PsiBuilder.Marker beforeStatement = mark();
                 parseStatement();
+
+                // If we are at declaration start on the same line probably we just have parsed annotations as separate statement-call.
+                if (!myBuilder.newlineBeforeCurrentToken() && atSet(LOCAL_DECLARATION_START)) {
+                    // So reparse it using short annotations mode and:
+                    // 1. report specific error message in case it's successfully parsed (within parseLocalDeclaration)
+                    // 2. reparse back as it was before (calling parseStatement() again)
+                    beforeStatement.rollbackTo();
+                    if (!parseLocalDeclaration(true)) {
+                        parseStatement();
+                    }
+                }
+                else {
+                    beforeStatement.drop();
+                }
             }
+
             if (at(SEMICOLON)) {
                 while (at(SEMICOLON)) advance(); // SEMICOLON
             }
@@ -1289,7 +1321,7 @@ public class JetExpressionParsing extends AbstractJetParsing {
      *  ;
      */
     private void parseStatement() {
-        if (!parseLocalDeclaration()) {
+        if (!parseLocalDeclaration(false)) {
             if (!atSet(EXPRESSION_FIRST)) {
                 errorAndAdvance("Expecting a statement");
             }
