@@ -42,7 +42,7 @@ abstract class KCallableContainerImpl {
 
     abstract val scope: JetScope
 
-    protected fun findPropertyDescriptor(name: String, receiverParameterClass: Class<*>? = null): () -> PropertyDescriptor = {
+    fun findPropertyDescriptor(name: String, receiverParameterClass: Class<*>? = null): PropertyDescriptor {
         val receiverDesc = receiverParameterClass?.desc
 
         val properties = scope
@@ -64,7 +64,7 @@ abstract class KCallableContainerImpl {
             )
         }
 
-        properties.single() as PropertyDescriptor
+        return properties.single() as PropertyDescriptor
     }
 
     // TODO: check resulting method's return type

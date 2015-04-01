@@ -26,10 +26,20 @@ import org.jetbrains.kotlin.serialization.jvm.JvmProtoBuf
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 
-abstract class DescriptorBasedProperty(computeDescriptor: () -> PropertyDescriptor) {
-    protected abstract val container: KCallableContainerImpl
+abstract class DescriptorBasedProperty(
+        container: KCallableContainerImpl,
+        name: String,
+        receiverParameterClass: Class<*>?,
+        descriptorInitialValue: PropertyDescriptor?
+) {
+    constructor(container: KCallableContainerImpl, name: String, receiverParameterClass: Class<*>?) : this(
+            container, name, receiverParameterClass, null
+    )
 
-    protected abstract val name: String
+    constructor(container: KCallableContainerImpl, descriptor: PropertyDescriptor) : this(
+            // TODO (!): null passed as a receiver parameter class is wrong here. Extract from descriptor's extension receiver instead
+            container, descriptor.getName().asString(), null, descriptor
+    )
 
     private data class PropertyProtoData(
             val proto: ProtoBuf.Callable,
@@ -37,7 +47,9 @@ abstract class DescriptorBasedProperty(computeDescriptor: () -> PropertyDescript
             val signature: JvmProtoBuf.JvmPropertySignature
     )
 
-    protected val descriptor: PropertyDescriptor by ReflectProperties.lazySoft(computeDescriptor)
+    protected val descriptor: PropertyDescriptor by ReflectProperties.lazySoft<PropertyDescriptor>(descriptorInitialValue) {
+        container.findPropertyDescriptor(name, receiverParameterClass)
+    }
 
     // null if this is a property declared in a foreign (Java) class
     private val protoData: PropertyProtoData? by ReflectProperties.lazyWeak @p { ->
