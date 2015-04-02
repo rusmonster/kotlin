@@ -25,8 +25,9 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.FqNameUnsafe
 import org.jetbrains.kotlin.resolve.jvm.JvmClassName
+import java.util.EnumSet
 
-public class CliVirtualFileFinder(private val packagesCache: PackagesCache) : VirtualFileKotlinClassFinder(), VirtualFileFinder {
+public class CliVirtualFileFinder(private val packagesCache: JvmDependenciesIndex) : VirtualFileKotlinClassFinder(), VirtualFileFinder {
 
     override fun findVirtualFileWithHeader(className: FqName): VirtualFile? {
         //TODO_R:
@@ -41,8 +42,8 @@ public class CliVirtualFileFinder(private val packagesCache: PackagesCache) : Vi
 
     private fun findVirtualFileByClassId(classId: ClassId): VirtualFile? {
         val relativeClassName = classId.getRelativeClassName().asString().replace('.', '$')
-        return packagesCache.searchPackages(classId.getPackageFqName()) {
-            it.findChild("$relativeClassName.class")?.let {
+        return packagesCache.findClass(classId, acceptedRootTypes = EnumSet.of(JavaRoot.RootType.BINARY)) { dir, _ ->
+            dir.findChild("$relativeClassName.class")?.let {
                 if (it.isValid()) it else null
             }
         }

@@ -36,16 +36,16 @@ import kotlin.properties.Delegates
 public class CoreJavaFileManagerExt(private val myPsiManager: PsiManager) : CoreJavaFileManager(myPsiManager) {
 
     private val myClasspath = ArrayList<VirtualFile>()
-    private var packagesCache: PackagesCache by Delegates.notNull()
+    private var packagesCache: JvmDependenciesIndex by Delegates.notNull()
 
-    public fun initCache(packagesCache: PackagesCache) {
+    public fun initCache(packagesCache: JvmDependenciesIndex) {
         this.packagesCache = packagesCache
     }
 
     public fun findClass(classId: ClassId, scope: GlobalSearchScope): PsiClass? {
         val classNameWithInnerClasses = classId.getRelativeClassName().asString()
-        return packagesCache.searchPackages<PsiClass>(classId.getPackageFqName()) { dir ->
-            findClassGivenPackage(scope, dir, classNameWithInnerClasses)
+        return packagesCache.findClass(classId) { dir, type ->
+            findClassGivenPackage(scope, dir, classNameWithInnerClasses, type)
         }
     }
 
@@ -59,12 +59,13 @@ public class CoreJavaFileManagerExt(private val myPsiManager: PsiManager) : Core
         val result = ArrayList<PsiClass>()
         val classIdAsTopLevelClass = ClassId.topLevel(FqName(qName))
         val classNameWithInnerClasses = classIdAsTopLevelClass.getRelativeClassName().asString()
-        packagesCache.searchPackages(classIdAsTopLevelClass.getPackageFqName()) { dir ->
-            val psiClass = findClassGivenPackage(scope, dir, classNameWithInnerClasses)
+        packagesCache.traverseDirectoriesInPackage(classIdAsTopLevelClass.getPackageFqName()) { dir, rootType ->
+            val psiClass = findClassGivenPackage(scope, dir, classNameWithInnerClasses, rootType)
             if (psiClass != null) {
                 result.add(psiClass)
             }
-            null
+            // traverse all
+            true
         }
         if (result.isEmpty()) {
             return super.findClasses(qName, scope)
@@ -72,12 +73,18 @@ public class CoreJavaFileManagerExt(private val myPsiManager: PsiManager) : Core
         return result.toArray<PsiClass>(arrayOfNulls<PsiClass>(result.size()))
     }
 
-    public fun findClassGivenPackage(scope: GlobalSearchScope, packageDir: VirtualFile, classNameWithInnerClasses: String): PsiClass? {
+    public fun findClassGivenPackage(
+            scope: GlobalSearchScope, packageDir: VirtualFile,
+            classNameWithInnerClasses: String, rootType: JavaRoot.RootType
+    ): PsiClass? {
         val topLevelClassName = classNameWithInnerClasses.substringBefore('.')
 
-        val vFile = packageDir.findChild("$topLevelClassName.class") ?:
-                    packageDir.findChild("$topLevelClassName.java") ?:
-                    return null
+        val vFile = when (rootType) {
+            JavaRoot.RootType.BINARY -> packageDir.findChild("$topLevelClassName.class")
+            JavaRoot.RootType.SOURCE -> packageDir.findChild("$topLevelClassName.java")
+        }
+
+        if (vFile == null) return null
 
         if (!vFile.isValid()) {
             LOG.error("Invalid child of valid parent: ${vFile.getPath()}; ${packageDir.isValid()} path=${packageDir.getPath()}")
@@ -99,8 +106,10 @@ public class CoreJavaFileManagerExt(private val myPsiManager: PsiManager) : Core
 
     override fun findPackage(packageName: String): PsiPackage? {
         var found = false
-        packagesCache.searchPackages(FqName(packageName)) {
+        packagesCache.traverseDirectoriesInPackage(FqName(packageName)) { _, __ ->
             found = true
+            //abort on first found
+            false
         }
         if (found) {
             return PsiPackageImpl(myPsiManager, packageName)

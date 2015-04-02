@@ -115,7 +115,7 @@ public class KotlinCoreEnvironment private(
 
         fillClasspath(configuration)
         val fileManagerExt = ServiceManager.getService(project, javaClass<CoreJavaFileManager>())
-        val packagesCache = PackagesCache(javaRoots)
+        val packagesCache = JvmDependenciesIndex(javaRoots)
         (fileManagerExt as CoreJavaFileManagerExt).initCache(packagesCache)
 
         for (path in configuration.getList(JVMConfigurationKeys.ANNOTATIONS_PATH_KEY)) {
