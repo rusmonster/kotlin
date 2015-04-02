@@ -111,13 +111,8 @@ public final class InTextDirectivesUtils {
             for (String prefix : cleanedPrefixes) {
                 if (line.startsWith(prefix)) {
                     String noPrefixLine = line.substring(prefix.length());
-
-                    if (noPrefixLine.isEmpty() ||
-                            Character.isWhitespace(noPrefixLine.charAt(0)) ||
-                            Character.isWhitespace(prefix.charAt(prefix.length() - 1))) {
-                        result.add(noPrefixLine.trim());
-                        break;
-                    }
+                    result.add(noPrefixLine.trim());
+                    break;
                 }
             }
         }
