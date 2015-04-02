@@ -32,14 +32,13 @@ import com.intellij.psi.PsiManager;
 import kotlin.Function1;
 import kotlin.Unit;
 import kotlin.io.IoPackage;
-import kotlin.modules.AllModules;
-import kotlin.modules.Module;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.backend.common.output.OutputFile;
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys;
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector;
 import org.jetbrains.kotlin.cli.common.messages.OutputMessageUtil;
+import org.jetbrains.kotlin.cli.common.modules.Module;
 import org.jetbrains.kotlin.cli.common.modules.ModuleScriptData;
 import org.jetbrains.kotlin.cli.common.modules.ModuleXmlParser;
 import org.jetbrains.kotlin.cli.jvm.config.JVMConfigurationKeys;
@@ -60,10 +59,7 @@ import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.jar.*;
 
 import static org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation.NO_LOCATION;
@@ -137,37 +133,7 @@ public class CompileEnvironmentUtil {
     }
 
     private static List<Module> runDefineModules(KotlinPaths paths, ClassFileFactory factory) {
-        File stdlibJar = paths.getRuntimePath();
-        GeneratedClassLoader loader;
-        if (stdlibJar.exists()) {
-            try {
-                loader = new GeneratedClassLoader(factory, new URLClassLoader(new URL[]{stdlibJar.toURI().toURL()},
-                                                                              AllModules.class.getClassLoader()));
-            }
-            catch (MalformedURLException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        else {
-            loader = new GeneratedClassLoader(factory, KotlinToJVMBytecodeCompiler.class.getClassLoader());
-        }
-        try {
-            Class<?> packageClass = loader.loadClass(PackageClassUtils.getPackageClassName(FqName.ROOT));
-            Method method = packageClass.getDeclaredMethod("project");
-
-            method.setAccessible(true);
-            method.invoke(null);
-
-            List<Module> answer = new ArrayList<Module>(AllModules.INSTANCE$.get());
-            AllModules.INSTANCE$.get().clear();
-            return answer;
-        }
-        catch (Exception e) {
-            throw new ModuleExecutionException(e);
-        }
-        finally {
-            loader.dispose();
-        }
+        return Collections.emptyList();
     }
 
     // TODO: includeRuntime should be not a flag but a path to runtime

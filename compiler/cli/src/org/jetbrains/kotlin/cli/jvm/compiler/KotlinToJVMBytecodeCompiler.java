@@ -24,8 +24,6 @@ import com.intellij.util.ArrayUtil;
 import kotlin.Function0;
 import kotlin.Function1;
 import kotlin.Unit;
-import kotlin.modules.AllModules;
-import kotlin.modules.Module;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.analyzer.AnalysisResult;
@@ -35,6 +33,7 @@ import org.jetbrains.kotlin.cli.common.CompilerPlugin;
 import org.jetbrains.kotlin.cli.common.CompilerPluginContext;
 import org.jetbrains.kotlin.cli.common.messages.AnalyzerWithCompilerReport;
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector;
+import org.jetbrains.kotlin.cli.common.modules.Module;
 import org.jetbrains.kotlin.cli.common.output.outputUtils.OutputUtilsPackage;
 import org.jetbrains.kotlin.cli.jvm.config.JVMConfigurationKeys;
 import org.jetbrains.kotlin.codegen.*;
@@ -67,6 +66,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
+import static org.jetbrains.kotlin.cli.jvm.config.ConfigPackage.addJavaSourceRoot;
 import static org.jetbrains.kotlin.cli.jvm.config.ConfigPackage.addJvmClasspathRoot;
 import static org.jetbrains.kotlin.cli.jvm.config.ConfigPackage.getJvmClasspathRoots;
 import static org.jetbrains.kotlin.config.ConfigPackage.addKotlinSourceRoots;
@@ -177,6 +177,10 @@ public class KotlinToJVMBytecodeCompiler {
                 addJvmClasspathRoot(configuration, new File(classpathRoot));
             }
 
+            for (String javaSourceRoot : module.getJavaSourceRoots()) {
+                addJavaSourceRoot(configuration, new File(javaSourceRoot));
+            }
+
             for (String annotationsRoot : module.getAnnotationsRoots()) {
                 configuration.add(JVMConfigurationKeys.ANNOTATIONS_PATH_KEY, new File(annotationsRoot));
             }
@@ -272,7 +276,8 @@ public class KotlinToJVMBytecodeCompiler {
             }
             classLoader = new GeneratedClassLoader(state.getFactory(),
                                                    new URLClassLoader(classPaths.toArray(new URL[classPaths.size()]),
-                                                                      AllModules.class.getClassLoader())
+                                                                      //TODO_R: HACK!!!ASDASDASKDASK
+                                                                      URLClassLoader.class.getClassLoader())
             );
 
             FqName nameForScript = ScriptNameUtil.classNameForScript(environment.getSourceFiles().get(0).getScript());

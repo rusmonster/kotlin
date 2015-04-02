@@ -1,4 +1,4 @@
-package kotlin.modules
+package org.jetbrains.kotlin.cli.common.modules
 
 public trait Module {
     public fun getModuleName(): String
@@ -10,4 +10,6 @@ public trait Module {
     public fun getClasspathRoots(): List<String>
 
     public fun getAnnotationsRoots(): List<String>
+
+    public fun getJavaSourceRoots(): List<String>
 }
