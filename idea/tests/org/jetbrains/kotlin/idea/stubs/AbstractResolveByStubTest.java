@@ -16,12 +16,7 @@
 
 package org.jetbrains.kotlin.idea.stubs;
 
-import com.intellij.openapi.module.Module;
-import com.intellij.openapi.roots.ContentEntry;
-import com.intellij.openapi.roots.ModifiableRootModel;
 import com.intellij.openapi.util.io.FileUtil;
-import com.intellij.testFramework.LightProjectDescriptor;
-import com.intellij.util.Consumer;
 import kotlin.Function0;
 import kotlin.Unit;
 import org.jetbrains.annotations.NotNull;
@@ -37,7 +32,7 @@ import org.junit.Assert;
 
 import java.io.File;
 
-import static com.intellij.openapi.roots.ModuleRootModificationUtil.updateModel;
+import static org.jetbrains.kotlin.idea.ConfigureTestUtils.configureModule;
 import static org.jetbrains.kotlin.test.util.DescriptorValidator.ValidationVisitor.errorTypesForbidden;
 
 public abstract class AbstractResolveByStubTest extends KotlinCodeInsightTestCase {
@@ -79,19 +74,6 @@ public abstract class AbstractResolveByStubTest extends KotlinCodeInsightTestCas
                         .withValidationStrategy(errorTypesForbidden()),
                 fileToCompareTo
         );
-    }
-
-    private static void configureModule(@NotNull final Module module, @NotNull final LightProjectDescriptor descriptor) {
-        updateModel(module, new Consumer<ModifiableRootModel>() {
-            @Override
-            public void consume(ModifiableRootModel model) {
-                if (descriptor.getSdk() != null) {
-                    model.setSdk(descriptor.getSdk());
-                }
-                ContentEntry entry = model.getContentEntries()[0];
-                descriptor.configureModule(module, model, entry);
-            }
-        });
     }
 
     @Override
