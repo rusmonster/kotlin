@@ -42,7 +42,7 @@ public class CoreJavaFileManagerExt(private var packagesCache: PackagesCache?, p
 
     public fun findClass(classId: ClassId, scope: GlobalSearchScope): PsiClass? {
         val classNameWithInnerClasses = classId.getRelativeClassName().asString()
-        return packagesCache!!.searchPackages<PsiClass>(classId.getPackageFqName(), cacheByClassId = classId) { dir ->
+        return packagesCache!!.searchPackages<PsiClass>(classId.getPackageFqName()) { dir ->
             findClassGivenPackage(scope, dir, classNameWithInnerClasses)
         }
     }

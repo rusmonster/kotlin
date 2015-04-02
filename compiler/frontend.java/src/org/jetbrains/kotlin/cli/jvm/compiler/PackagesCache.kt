@@ -29,9 +29,6 @@ import kotlin.properties.Delegates
 
 class PackagesCache(val classpath: List<VirtualFile>) {
 
-    private var lastSearched: ClassId? = null
-    private var lastFoundDir: VirtualFile? = null
-
     //these fields are computed based on classpath which is filled in later
     private val maxIndex: Int by Delegates.lazy { classpath.size() }
 
@@ -46,10 +43,7 @@ class PackagesCache(val classpath: List<VirtualFile>) {
         }
     }
 
-    fun <T : Any> searchPackages(packageFqName: FqName, cacheByClassId: ClassId? = null, handler: (VirtualFile) -> T?): T? {
-        if (cacheByClassId == lastSearched) {
-            return lastFoundDir?.let(handler)
-        }
+    fun <T : Any> searchPackages(packageFqName: FqName, handler: (VirtualFile) -> T?): T? {
         val packagesPath = packageFqName.pathSegments().map { it.getIdentifier() }
         if (packagesPath.isEmpty()) {
             classpath.forEach { file ->
@@ -70,17 +64,11 @@ class PackagesCache(val classpath: List<VirtualFile>) {
                 val dir = travelPath(classpathIndex, packagesPath, cacheIndex, caches) ?: continue
                 val result = handler(dir)
                 if (result != null) {
-                    if (cacheByClassId != null) {
-                        lastFoundDir = dir
-                        lastSearched = cacheByClassId
-                    }
                     return result
                 }
             }
             lastMaxIndex = cache.classpathIndices.lastOrNull() ?: lastMaxIndex
         }
-        lastFoundDir = null
-        lastSearched = cacheByClassId
         return null
     }
 

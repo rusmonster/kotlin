@@ -41,7 +41,7 @@ public class CliVirtualFileFinder(private val packagesCache: PackagesCache) : Vi
 
     private fun findVirtualFileByClassId(classId: ClassId): VirtualFile? {
         val relativeClassName = classId.getRelativeClassName().asString().replace('.', '$')
-        return packagesCache.searchPackages(classId.getPackageFqName(), cacheByClassId = classId) {
+        return packagesCache.searchPackages(classId.getPackageFqName()) {
             it.findChild("$relativeClassName.class")?.let {
                 if (it.isValid()) it else null
             }
