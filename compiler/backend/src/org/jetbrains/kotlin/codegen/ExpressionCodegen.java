@@ -3262,18 +3262,18 @@ public class ExpressionCodegen extends JetVisitor<StackValue, StackValue> implem
 
     private StackValue generateComparison(JetBinaryExpression expression, StackValue receiver) {
         ResolvedCall<?> resolvedCall = getResolvedCallWithAssert(expression, bindingContext);
-        FunctionDescriptor descriptor = (FunctionDescriptor) resolvedCall.getResultingDescriptor();
 
         JetExpression left = expression.getLeft();
         JetExpression right = expression.getRight();
-        Callable callable = resolveToCallable(descriptor, false, resolvedCall);
 
         Type type;
         StackValue leftValue;
         StackValue rightValue;
-        if (callable instanceof IntrinsicMethod) {
-            // Compare two primitive values
-            type = comparisonOperandType(expressionType(left), expressionType(right));
+        Type leftType = expressionType(left);
+        Type rightType = expressionType(right);
+        if (isPrimitive(leftType) && isPrimitive(rightType)) {
+            //Compare two primitive values
+            type = comparisonOperandType(leftType, rightType);
             leftValue = gen(left);
             rightValue = gen(right);
         }
