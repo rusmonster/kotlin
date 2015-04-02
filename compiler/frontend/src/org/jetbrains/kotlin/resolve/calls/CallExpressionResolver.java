@@ -87,7 +87,8 @@ public class CallExpressionResolver {
     }
 
     @Nullable
-    private JetType getVariableType(@NotNull JetSimpleNameExpression nameExpression, @NotNull ReceiverValue receiver,
+    private JetType getVariableType(
+            @NotNull JetSimpleNameExpression nameExpression, @NotNull ReceiverValue receiver,
             @Nullable ASTNode callOperationNode, @NotNull ExpressionTypingContext context, @NotNull boolean[] result
     ) {
         TemporaryTraceAndCache temporaryForVariable = TemporaryTraceAndCache.create(
@@ -125,14 +126,16 @@ public class CallExpressionResolver {
     }
 
     @NotNull
-    public JetTypeInfo getSimpleNameExpressionTypeInfo(@NotNull JetSimpleNameExpression nameExpression, @NotNull ReceiverValue receiver,
+    public JetTypeInfo getSimpleNameExpressionTypeInfo(
+            @NotNull JetSimpleNameExpression nameExpression, @NotNull ReceiverValue receiver,
             @Nullable ASTNode callOperationNode, @NotNull ExpressionTypingContext context
     ) {
         boolean[] result = new boolean[1];
 
         TemporaryTraceAndCache temporaryForVariable = TemporaryTraceAndCache.create(
                 context, "trace to resolve as variable", nameExpression);
-        JetType type = getVariableType(nameExpression, receiver, callOperationNode, context.replaceTraceAndCache(temporaryForVariable), result);
+        JetType type =
+                getVariableType(nameExpression, receiver, callOperationNode, context.replaceTraceAndCache(temporaryForVariable), result);
         if (result[0]) {
             temporaryForVariable.commit();
             return JetTypeInfo.create(type, context.dataFlowInfo);
@@ -184,7 +187,9 @@ public class CallExpressionResolver {
         TemporaryTraceAndCache temporaryForFunction = TemporaryTraceAndCache.create(
                 context, "trace to resolve as function call", callExpression);
         ResolvedCall<FunctionDescriptor> resolvedCall = getResolvedCallForFunction(
-                call, callExpression, context.replaceTraceAndCache(temporaryForFunction),
+                call, callExpression,
+                // It's possible start of a call so we should reset safe call chain
+                context.replaceTraceAndCache(temporaryForFunction).replaceInsideSafeCallChain(false),
                 CheckValueArgumentsMode.ENABLED, result);
         if (result[0]) {
             FunctionDescriptor functionDescriptor = resolvedCall != null ? resolvedCall.getResultingDescriptor() : null;
@@ -197,7 +202,8 @@ public class CallExpressionResolver {
             if (functionDescriptor == null) {
                 return JetTypeInfo.create(null, context.dataFlowInfo);
             }
-            if (functionDescriptor instanceof ConstructorDescriptor && DescriptorUtils.isAnnotationClass(functionDescriptor.getContainingDeclaration())) {
+            if (functionDescriptor instanceof ConstructorDescriptor &&
+                DescriptorUtils.isAnnotationClass(functionDescriptor.getContainingDeclaration())) {
                 if (!canInstantiateAnnotationClass(callExpression)) {
                     context.trace.report(ANNOTATION_CLASS_CONSTRUCTOR_CALL.on(callExpression));
                 }
@@ -205,14 +211,7 @@ public class CallExpressionResolver {
 
             JetType type = functionDescriptor.getReturnType();
 
-
-            if (resolvedCall.isSafeCall()) {
-                // For safe call, we should not take arguments into account because it's only one branch, see KT-7204
-                return JetTypeInfo.create(type, context.dataFlowInfo);
-            } else {
-                // For simple call, we take data flow info for arguments as the result
-                return JetTypeInfo.create(type, resolvedCall.getDataFlowInfoForArguments().getResultInfo());
-            }
+            return JetTypeInfo.create(type, resolvedCall.getDataFlowInfoForArguments().getResultInfo());
         }
 
         JetExpression calleeExpression = callExpression.getCalleeExpression();
@@ -270,6 +269,7 @@ public class CallExpressionResolver {
 
     /**
      * Visits a qualified expression like x.y or x?.z controlling data flow information changes.
+     *
      * @return qualified expression type together with data flow information
      */
     @NotNull
@@ -279,25 +279,36 @@ public class CallExpressionResolver {
         // TODO : functions as values
         JetExpression selectorExpression = expression.getSelectorExpression();
         JetExpression receiverExpression = expression.getReceiverExpression();
-        ResolutionContext contextForReceiver = context.replaceExpectedType(NO_EXPECTED_TYPE).replaceContextDependency(INDEPENDENT);
+        boolean safeCall = (expression.getOperationSign() == JetTokens.SAFE_ACCESS);
+        ResolutionContext contextForReceiver = context.replaceExpectedType(NO_EXPECTED_TYPE).
+                replaceContextDependency(INDEPENDENT).
+                replaceInsideSafeCallChain(safeCall); // Enter safe call chain
+        // Visit receiver (x in x.y or x?.z) here. Recursion is possible.
         JetTypeInfo receiverTypeInfo = expressionTypingServices.getTypeInfo(receiverExpression, contextForReceiver);
         JetType receiverType = receiverTypeInfo.getType();
         QualifierReceiver qualifierReceiver = (QualifierReceiver) context.trace.get(BindingContext.QUALIFIER, receiverExpression);
 
         if (receiverType == null) receiverType = ErrorUtils.createErrorType("Type for " + expression.getText());
 
+        // Receiver changes should be always applied, at least for argument analysis
         context = context.replaceDataFlowInfo(receiverTypeInfo.getDataFlowInfo());
 
         ReceiverValue receiver = qualifierReceiver == null ? new ExpressionReceiver(receiverExpression, receiverType) : qualifierReceiver;
+
+        // Store inside safe call chain value for further use
+        boolean insideSafeCallChain = context.insideSafeCallChain;
+
+        // Visit selector (y in x.y) here. Recursion is also possible.
         JetTypeInfo selectorReturnTypeInfo = getSelectorReturnTypeInfo(
-                receiver, expression.getOperationTokenNode(), selectorExpression, context);
+                receiver, expression.getOperationTokenNode(), selectorExpression,
+                context.replaceInsideSafeCallChain(false)); // Leave safe call chain: x?.foo()?.(bar()?.gav())
         JetType selectorReturnType = selectorReturnTypeInfo.getType();
 
         resolveDeferredReceiverInQualifiedExpression(qualifierReceiver, expression, context);
         checkNestedClassAccess(expression, context);
 
         //TODO move further
-        if (expression.getOperationSign() == JetTokens.SAFE_ACCESS) {
+        if (safeCall) {
             if (selectorReturnType != null && !KotlinBuiltIns.isUnit(selectorReturnType)) {
                 if (TypeUtils.isNullableType(receiverType)) {
                     selectorReturnType = TypeUtils.makeNullable(selectorReturnType);
@@ -314,7 +325,33 @@ public class CallExpressionResolver {
             return BasicExpressionTypingVisitor.createCompileTimeConstantTypeInfo(value, expression, context);
         }
 
-        JetTypeInfo typeInfo = JetTypeInfo.create(selectorReturnType, selectorReturnTypeInfo.getDataFlowInfo());
+        JetTypeInfo typeInfo;
+        if (safeCall) {
+            DataFlowInfo safeCallChainInfo = receiverTypeInfo.getSafeCallChainDataFlowInfo();
+            if (insideSafeCallChain) {
+                // If we are inside safe call chain, we SHOULD take arguments into account, for example
+                // x?.foo(x.field)?.bar(x.field)?.gav(x.field) (like kt5840longChain)
+                // Also, we should provide further safe call chain data flow information or
+                // if we are in the most left safe call then just take it from receiver
+                typeInfo = JetTypeInfo.create(selectorReturnType, selectorReturnTypeInfo.getDataFlowInfo(),
+                                              safeCallChainInfo != null ? safeCallChainInfo : receiverTypeInfo.getDataFlowInfo());
+            }
+            else {
+                // Here we should not take selector data flow info into account because it's only one branch, see KT-7204
+                // x?.foo(y!!) // y becomes not-nullable during argument analysis
+                // y.bar()     // ERROR: y is nullable at this point
+                // So we should just take safe call chain data flow information, e.g. foo(x!!)?.bar()?.gav()
+                // If it's null, we must take receiver normal info, it's a chain with length of one and
+                // safe call chain information does not yet exist
+                typeInfo = JetTypeInfo.create(selectorReturnType, safeCallChainInfo != null ? safeCallChainInfo : receiverTypeInfo.getDataFlowInfo());
+            }
+        }
+        else {
+            // It's not a safe call, so we can take selector data flow information
+            // Safe call chain information also should be provided because it's can be a part of safe call chain
+            typeInfo = JetTypeInfo.create(selectorReturnType, selectorReturnTypeInfo.getDataFlowInfo(),
+                                          selectorReturnTypeInfo.getSafeCallChainDataFlowInfo());
+        }
         if (context.contextDependency == INDEPENDENT) {
             DataFlowUtils.checkType(typeInfo, expression, context);
         }
@@ -351,7 +388,8 @@ public class CallExpressionResolver {
         if (receiverQualifier == null && expressionQualifier != null) {
             assert expressionQualifier.getClassifier() instanceof ClassDescriptor :
                     "Only class can (package cannot) be accessed by instance reference: " + expressionQualifier;
-            context.trace.report(NESTED_CLASS_ACCESSED_VIA_INSTANCE_REFERENCE.on(selectorExpression, (ClassDescriptor)expressionQualifier.getClassifier()));
+            context.trace.report(NESTED_CLASS_ACCESSED_VIA_INSTANCE_REFERENCE
+                                         .on(selectorExpression, (ClassDescriptor) expressionQualifier.getClassifier()));
         }
     }
 }

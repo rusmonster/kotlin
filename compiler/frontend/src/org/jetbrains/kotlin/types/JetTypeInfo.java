@@ -23,15 +23,26 @@ import org.jetbrains.kotlin.resolve.calls.smartcasts.DataFlowInfo;
 public class JetTypeInfo {
     @NotNull
     public static JetTypeInfo create(@Nullable JetType type, @NotNull DataFlowInfo dataFlowInfo) {
-        return new JetTypeInfo(type, dataFlowInfo);
+        return new JetTypeInfo(type, dataFlowInfo, null);
     }
-    
+
+    @NotNull
+    public static JetTypeInfo create(
+            @Nullable JetType type,
+            @NotNull DataFlowInfo dataFlowInfo,
+            @Nullable DataFlowInfo safeCallChainDataFlowInfo
+    ) {
+        return new JetTypeInfo(type, dataFlowInfo, safeCallChainDataFlowInfo);
+    }
+
     private final JetType type;
     private final DataFlowInfo dataFlowInfo;
+    private final DataFlowInfo safeCallChainDataFlowInfo;
 
-    private JetTypeInfo(@Nullable JetType type, @NotNull DataFlowInfo dataFlowInfo) {
+    private JetTypeInfo(@Nullable JetType type, @NotNull DataFlowInfo dataFlowInfo, @Nullable DataFlowInfo safeCallChainDataFlowInfo) {
         this.type = type;
         this.dataFlowInfo = dataFlowInfo;
+        this.safeCallChainDataFlowInfo = safeCallChainDataFlowInfo;
     }
 
     @Nullable
@@ -42,5 +53,14 @@ public class JetTypeInfo {
     @NotNull
     public DataFlowInfo getDataFlowInfo() {
         return dataFlowInfo;
+    }
+
+    /**
+     * Returns  safe call chain information which is taken from the left-most receiver of a chain
+     * foo(x!!)?.bar(y!!)?.gav() ==> x != null is safe call chain information
+     */
+    @Nullable
+    public DataFlowInfo getSafeCallChainDataFlowInfo() {
+        return safeCallChainDataFlowInfo;
     }
 }
