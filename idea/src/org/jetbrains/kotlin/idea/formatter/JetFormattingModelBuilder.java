@@ -21,6 +21,9 @@ import com.intellij.formatting.FormattingModelBuilder;
 import com.intellij.formatting.FormattingModelProvider;
 import com.intellij.formatting.Indent;
 import com.intellij.lang.ASTNode;
+import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.editor.Document;
+import com.intellij.openapi.editor.impl.DocumentImpl;
 import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiFile;
@@ -28,7 +31,12 @@ import com.intellij.psi.codeStyle.CodeStyleSettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.kotlin.idea.JetLanguage;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+
 public class JetFormattingModelBuilder implements FormattingModelBuilder {
+    private static final Logger LOG = Logger.getInstance(JetFormattingModelBuilder.class);
+
     @NotNull
     @Override
     public FormattingModel createModel(PsiElement element, CodeStyleSettings settings) {
@@ -37,8 +45,27 @@ public class JetFormattingModelBuilder implements FormattingModelBuilder {
                 containingFile.getNode(), NodeAlignmentStrategy.getNullStrategy(), Indent.getNoneIndent(), null, settings,
                 FormatterPackage.createSpacingBuilder(settings));
 
-        return FormattingModelProvider.createFormattingModelForPsiFile(
-                element.getContainingFile(), block, settings);
+        FormattingModel formattingModel = FormattingModelProvider.createFormattingModelForPsiFile(element.getContainingFile(), block, settings);
+
+        //TODO: this is temporary code to allow formatting non-physical files in non-UI thread (used by conversion from Java to Kotlin)
+        // it's needed until IDEA's issue with this document being created with wrong threading policy is fixed
+        if (!element.isPhysical()) {
+            Document document = formattingModel.getDocumentModel().getDocument();
+
+            try {
+                Field field = DocumentImpl.class.getDeclaredField("myAssertThreading");
+                field.setAccessible(true);
+                Field modifiersField = Field.class.getDeclaredField("modifiers");
+                modifiersField.setAccessible(true);
+                modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
+                field.set(document, false);
+            }
+            catch (Exception e) {
+                LOG.error(e);
+            }
+        }
+
+        return formattingModel;
     }
 
     @Override
