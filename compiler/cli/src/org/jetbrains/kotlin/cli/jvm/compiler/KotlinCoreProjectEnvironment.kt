@@ -31,7 +31,7 @@ open class KotlinCoreProjectEnvironment(
         applicationEnvironment: JavaCoreApplicationEnvironment
 )
 : JavaCoreProjectEnvironment(disposable, applicationEnvironment) {
-    override fun createCoreFileManager() = CoreJavaFileManagerExt(PackagesCache(listOf()), PsiManager.getInstance(getProject()))
+    override fun createCoreFileManager() = CoreJavaFileManagerExt(PsiManager.getInstance(getProject()))
 
     public fun addRootToClasspath(file: VirtualFile) {
         val packageIndex = ServiceManager.getService(getProject(), javaClass<CorePackageIndex>())

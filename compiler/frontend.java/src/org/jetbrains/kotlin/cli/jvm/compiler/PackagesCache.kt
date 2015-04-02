@@ -18,36 +18,51 @@ package org.jetbrains.kotlin.cli.jvm.compiler
 
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.containers.IntArrayList
-import com.intellij.util.containers.SLRUCache
-import com.intellij.util.containers.SLRUMap
-import gnu.trove.TIntArrayList
-import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import java.util.ArrayList
+import java.util.EnumSet
 import java.util.HashMap
 import kotlin.properties.Delegates
 
-class PackagesCache(val classpath: List<VirtualFile>) {
+//TODO_R: not public?
+public data class JavaRoot(public val file: VirtualFile, public val type: JavaRoot.RootType) {
+    public enum class RootType {
+        SOURCE
+        BINARY
+    }
+}
 
+class PackagesCache(val roots: List<JavaRoot>) {
     //these fields are computed based on classpath which is filled in later
-    private val maxIndex: Int by Delegates.lazy { classpath.size() }
+    private val maxIndex: Int by Delegates.lazy { roots.size() }
 
     private val rootCache: Cache by Delegates.lazy {
         with(Cache()) {
-            classpath.indices.forEach {
-                classpathIndices.add(it)
+            roots.indices.forEach {
+                rootIndices.add(it)
             }
-            classpathIndices.add(maxIndex)
-            classpathIndices.trimToSize()
+            rootIndices.add(maxIndex)
+            rootIndices.trimToSize()
             this
         }
     }
 
-    fun <T : Any> searchPackages(packageFqName: FqName, handler: (VirtualFile) -> T?): T? {
+    fun <T : Any> searchPackages(
+            packageFqName: FqName,
+            acceptedRootTypes: EnumSet<JavaRoot.RootType> = EnumSet.allOf(javaClass<JavaRoot.RootType>()),
+            handler: (VirtualFile) -> T?
+    ): T? {
+        fun handle(root: JavaRoot, targetDirInRoot: VirtualFile): T? {
+            if (root.type in acceptedRootTypes) {
+                return handler(targetDirInRoot)
+            }
+            return null
+        }
+
         val packagesPath = packageFqName.pathSegments().map { it.getIdentifier() }
         if (packagesPath.isEmpty()) {
-            classpath.forEach { file ->
-                val result = handler(file)
+            roots.forEach { root ->
+                val result = handle(root, root.file)
                 if (result != null) return result
             }
         }
@@ -57,17 +72,17 @@ class PackagesCache(val classpath: List<VirtualFile>) {
         var lastMaxIndex = -1
         for (cacheIndex in (caches.size() - 1) downTo 0) {
             val cache = caches[cacheIndex]
-            for (i in cache.classpathIndices.size().indices) {
-                val classpathIndex = cache.classpathIndices[i]
-                if (classpathIndex <= lastMaxIndex) continue
+            for (i in cache.rootIndices.size().indices) {
+                val rootIndex = cache.rootIndices[i]
+                if (rootIndex <= lastMaxIndex) continue
 
-                val dir = travelPath(classpathIndex, packagesPath, cacheIndex, caches) ?: continue
-                val result = handler(dir)
+                val dir = travelPath(rootIndex, packagesPath, cacheIndex, caches) ?: continue
+                val result = handle(roots[rootIndex], dir)
                 if (result != null) {
                     return result
                 }
             }
-            lastMaxIndex = cache.classpathIndices.lastOrNull() ?: lastMaxIndex
+            lastMaxIndex = cache.rootIndices.lastOrNull() ?: lastMaxIndex
         }
         return null
     }
@@ -76,21 +91,21 @@ class PackagesCache(val classpath: List<VirtualFile>) {
      * root -> "org" -> "jet" -> "language"
      * [org, jet, language]
      */
-    private fun travelPath(classPathEntryIndex: Int, packagesPath: List<String>, fillCachesAfter: Int, cachesPath: List<Cache>): VirtualFile? {
-        if (oob(classPathEntryIndex)) {
+    private fun travelPath(rootIndex: Int, packagesPath: List<String>, fillCachesAfter: Int, cachesPath: List<Cache>): VirtualFile? {
+        if (oob(rootIndex)) {
             for (i in (fillCachesAfter + 1)..cachesPath.size() - 1) {
-                cachesPath[i].classpathIndices.add(maxIndex)
-                cachesPath[i].classpathIndices.trimToSize()
+                cachesPath[i].rootIndices.add(maxIndex)
+                cachesPath[i].rootIndices.trimToSize()
             }
             return null
         }
 
-        var currentFile = classpath[classPathEntryIndex]
+        var currentFile = roots[rootIndex].file
         for (pathIndex in packagesPath.indices) {
             currentFile = currentFile.findChild(packagesPath[pathIndex]) ?: return null
             val correspondingCacheIndex = pathIndex + 1
             if (correspondingCacheIndex > fillCachesAfter) {
-                cachesPath[correspondingCacheIndex].classpathIndices.add(classPathEntryIndex)
+                cachesPath[correspondingCacheIndex].rootIndices.add(rootIndex)
             }
         }
         return currentFile
@@ -116,7 +131,7 @@ class PackagesCache(val classpath: List<VirtualFile>) {
 
         fun get(name: String) = innerCaches.getOrPut(name) { Cache() }
 
-        val classpathIndices = IntArrayList()
+        val rootIndices = IntArrayList()
     }
 }
 

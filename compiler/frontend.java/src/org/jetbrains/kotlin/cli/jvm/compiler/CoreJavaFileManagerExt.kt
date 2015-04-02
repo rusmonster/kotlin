@@ -30,19 +30,21 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 
 import java.util.ArrayList
+import kotlin.properties.Delegates
 
 //TODO_R: packages cache injection
-public class CoreJavaFileManagerExt(private var packagesCache: PackagesCache?, private val myPsiManager: PsiManager) : CoreJavaFileManager(myPsiManager) {
+public class CoreJavaFileManagerExt(private val myPsiManager: PsiManager) : CoreJavaFileManager(myPsiManager) {
 
     private val myClasspath = ArrayList<VirtualFile>()
+    private var packagesCache: PackagesCache by Delegates.notNull()
 
-    public fun setPackagesCache(packagesCache: PackagesCache) {
+    public fun initCache(packagesCache: PackagesCache) {
         this.packagesCache = packagesCache
     }
 
     public fun findClass(classId: ClassId, scope: GlobalSearchScope): PsiClass? {
         val classNameWithInnerClasses = classId.getRelativeClassName().asString()
-        return packagesCache!!.searchPackages<PsiClass>(classId.getPackageFqName()) { dir ->
+        return packagesCache.searchPackages<PsiClass>(classId.getPackageFqName()) { dir ->
             findClassGivenPackage(scope, dir, classNameWithInnerClasses)
         }
     }
@@ -57,7 +59,7 @@ public class CoreJavaFileManagerExt(private var packagesCache: PackagesCache?, p
         val result = ArrayList<PsiClass>()
         val classIdAsTopLevelClass = ClassId.topLevel(FqName(qName))
         val classNameWithInnerClasses = classIdAsTopLevelClass.getRelativeClassName().asString()
-        packagesCache!!.searchPackages(classIdAsTopLevelClass.getPackageFqName()) { dir ->
+        packagesCache.searchPackages(classIdAsTopLevelClass.getPackageFqName()) { dir ->
             val psiClass = findClassGivenPackage(scope, dir, classNameWithInnerClasses)
             if (psiClass != null) {
                 result.add(psiClass)
@@ -97,7 +99,7 @@ public class CoreJavaFileManagerExt(private var packagesCache: PackagesCache?, p
 
     override fun findPackage(packageName: String): PsiPackage? {
         var found = false
-        packagesCache!!.searchPackages(FqName(packageName)) {
+        packagesCache.searchPackages(FqName(packageName)) {
             found = true
         }
         if (found) {

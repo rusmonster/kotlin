@@ -95,7 +95,7 @@ public class KotlinCoreEnvironment private(
         }
     }
     private val sourceFiles = ArrayList<JetFile>()
-    private val classPath = ClassPath()
+    private val javaRoots = ArrayList<JavaRoot>()
 
     private val annotationsManager: CoreExternalAnnotationsManager
 
@@ -114,6 +114,9 @@ public class KotlinCoreEnvironment private(
         registerProjectServices(projectEnvironment)
 
         fillClasspath(configuration)
+        val fileManagerExt = ServiceManager.getService(project, javaClass<CoreJavaFileManager>())
+        val packagesCache = PackagesCache(javaRoots)
+        (fileManagerExt as CoreJavaFileManagerExt).initCache(packagesCache)
 
         for (path in configuration.getList(JVMConfigurationKeys.ANNOTATIONS_PATH_KEY)) {
             addExternalAnnotationsRoot(path)
@@ -130,7 +133,7 @@ public class KotlinCoreEnvironment private(
 
         JetScriptDefinitionProvider.getInstance(project).addScriptDefinitions(configuration.getList(CommonConfigurationKeys.SCRIPT_DEFINITIONS_KEY))
 
-        project.registerService(javaClass<VirtualFileFinderFactory>(), CliVirtualFileFinderFactory(PackagesCache(listOf())))
+        project.registerService(javaClass<VirtualFileFinderFactory>(), CliVirtualFileFinderFactory(packagesCache))
 
         ExternalDeclarationsProvider.registerExtensionPoint(project)
         ExpressionCodegenExtension.registerExtensionPoint(project)
@@ -163,7 +166,12 @@ public class KotlinCoreEnvironment private(
             val virtualFile = contentRootToVirtualFile(javaRoot) ?: continue
 
             projectEnvironment.addSourcesToClasspath(virtualFile)
-            classPath.add(virtualFile)
+            val rootType = when (javaRoot) {
+                is JavaSourceRoot -> JavaRoot.RootType.SOURCE
+                is JvmClasspathRoot -> JavaRoot.RootType.BINARY
+                else -> throw IllegalStateException()
+            }
+            javaRoots.add(JavaRoot(virtualFile, rootType))
         }
     }
 
