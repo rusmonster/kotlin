@@ -279,9 +279,8 @@ public class TakeStream<T>(stream: Stream<T>, count: Int)
 public class TakeSequence<T>(private val sequence: Sequence<T>,
                              private val count: Int
                             ) : Sequence<T> {
-    {
-        if (count < 0)
-            throw IllegalArgumentException("count should be non-negative, but is $count")
+    init {
+        require (count >= 0) { throw IllegalArgumentException("count should be non-negative, but is $count") }
     }
 
     override fun iterator(): Iterator<T> = object : Iterator<T> {
@@ -360,9 +359,8 @@ public class DropStream<T>(stream: Stream<T>, count: Int)
 public class DropSequence<T>(private val sequence: Sequence<T>,
                              private val count: Int
                             ) : Sequence<T> {
-    {
-        if (count < 0)
-            throw IllegalArgumentException("count should be non-negative, but is $count")
+    init {
+        require (count >= 0) { throw IllegalArgumentException("count should be non-negative, but is $count") }
     }
 
     override fun iterator(): Iterator<T> = object : Iterator<T> {
@@ -511,10 +509,23 @@ private class GeneratorSequence<T: Any>(private val getInitialValue: () -> T?, p
 }
 
 /**
+ * Returns a wrapper sequence that provides values of this sequence, but ensures it can be consumed only one time.
+ *
+ * [IllegalStateException] is thrown on iterating the returned sequence from the second time.
+ */
+public fun <T> Sequence<T>.asOneTimeConsumable(): Sequence<T> {
+    // as? does not work in js
+    //return this as? OneTimeConsumableSequence<T> ?: OneTimeConsumableSequence(this)
+    return if (this is OneTimeConsumableSequence<T>) this else OneTimeConsumableSequence(this)
+}
+
+/**
  * Returns a sequence which invokes the function to calculate the next value on each iteration until the function returns `null`.
+ *
+ * Returned sequence is one-time consumable.
  */
 public fun <T : Any> sequence(nextFunction: () -> T?): Sequence<T> {
-    return GeneratorSequence(nextFunction, { nextFunction() })
+    return GeneratorSequence(nextFunction, { nextFunction() }).asOneTimeConsumable()
 }
 
 deprecated("Use sequence() instead")
