@@ -46,16 +46,16 @@ public class Not : LazyIntrinsicMethod() {
 
     override fun toCallable(fd: FunctionDescriptor, isSuper: Boolean, resolvedCall: ResolvedCall<*>, codegen: ExpressionCodegen): ExtendedCallable {
         val callable = codegen.getState().getTypeMapper().mapToCallableMethod(fd, false, codegen.getContext())
-        return object : MappedCallable(callable, {})  {
+        return object : MappedCallable(callable, {}) {
             override fun invokeMethodWithArguments(resolvedCall: ResolvedCall<*>, receiver: StackValue, returnType: Type, codegen: ExpressionCodegen): StackValue {
                 val element = resolvedCall.getCall().getCallElement()
-                val stackValue: StackValue
-                if (element is JetPrefixExpression) {
-                    val jetPrefixExpression = element
-                    stackValue = codegen.gen(jetPrefixExpression.getBaseExpression())
-                } else {
-                    stackValue = StackValue.receiver(resolvedCall, receiver, codegen, this)
-                }
+                val stackValue =
+                        if (element is JetPrefixExpression) {
+                            codegen.gen(element.getBaseExpression())
+                        }
+                        else {
+                            StackValue.receiver(resolvedCall, receiver, codegen, this)
+                        }
                 return StackValue.not(StackValue.coercion(stackValue, Type.BOOLEAN_TYPE))
             }
         }
