@@ -139,7 +139,7 @@ public class UnaryIntrinsic(val callable: CallableMethod, val newReturnType: Typ
 
 }
 
-public open class MappedCallable(val callable: CallableMethod, val invoke: MappedCallable.(v: InstructionAdapter) -> Unit) :
+public open class MappedCallable(val callable: CallableMethod, val invoke: MappedCallable.(v: InstructionAdapter) -> Unit = {}) :
         IntrinsicCallable(callable.getReturnType(), callable.getValueParameterTypes(), callable.getThisType(), callable.getReceiverClass()) {
 
 
