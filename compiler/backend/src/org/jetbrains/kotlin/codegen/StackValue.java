@@ -855,8 +855,8 @@ public abstract class StackValue {
     }
 
     public static class CollectionElement extends StackValueWithSimpleReceiver {
-        private final Callable getter;
-        private final Callable setter;
+        private final ExtendedCallable getter;
+        private final ExtendedCallable setter;
         private final ExpressionCodegen codegen;
         private final GenerationState state;
         private final ResolvedCall<FunctionDescriptor> resolvedGetCall;
@@ -878,8 +878,10 @@ public abstract class StackValue {
             this.state = state;
             this.setterDescriptor = resolvedSetCall == null ? null : resolvedSetCall.getResultingDescriptor();
             this.getterDescriptor = resolvedGetCall == null ? null : resolvedGetCall.getResultingDescriptor();
-            this.setter = resolvedSetCall == null ? null : codegen.resolveToCallable(setterDescriptor, false, resolvedSetCall);
-            this.getter = resolvedGetCall == null ? null : codegen.resolveToCallable(getterDescriptor, false, resolvedGetCall);
+            this.setter =
+                    resolvedSetCall == null ? null : (ExtendedCallable) codegen.resolveToCallable(setterDescriptor, false, resolvedSetCall);
+            this.getter =
+                    resolvedGetCall == null ? null : (ExtendedCallable) codegen.resolveToCallable(getterDescriptor, false, resolvedGetCall);
             this.codegen = codegen;
         }
 
@@ -888,13 +890,8 @@ public abstract class StackValue {
             if (getter == null) {
                 throw new UnsupportedOperationException("no getter specified");
             }
-            if (getter instanceof ExtendedCallable) {
-                ((ExtendedCallable) getter).invokeWithNotNullAssertion(v, state, resolvedGetCall);
-            }
-            else {
-                StackValue result = ((IntrinsicMethod) getter).generate(codegen, this.type, null, Collections.<JetExpression>emptyList(), StackValue.none());
-                result.put(result.type, v);
-            }
+
+            getter.invokeWithNotNullAssertion(v, state, resolvedGetCall);
             coerceTo(type, v);
         }
 
@@ -944,20 +941,13 @@ public abstract class StackValue {
             if (setter == null) {
                 throw new UnsupportedOperationException("no setter specified");
             }
-            if (setter instanceof ExtendedCallable) {
-                ExtendedCallable method = (ExtendedCallable) setter;
-                Type[] argumentTypes = method.getArgumentTypes();
-                coerce(topOfStackType, argumentTypes[argumentTypes.length - 1], v);
-                method.invokeWithNotNullAssertion(v, state, resolvedSetCall);
-                Type returnType = method.getReturnType();
-                if (returnType != Type.VOID_TYPE) {
-                    pop(v, returnType);
-                }
-            }
-            else {
-                //noinspection ConstantConditions
-                StackValue result = ((IntrinsicMethod) setter).generate(codegen, null, null, Collections.<JetExpression>emptyList(), StackValue.none());
-                result.put(result.type, v);
+
+            Type[] argumentTypes = setter.getArgumentTypes();
+            coerce(topOfStackType, argumentTypes[argumentTypes.length - 1], v);
+            setter.invokeWithNotNullAssertion(v, state, resolvedSetCall);
+            Type returnType = setter.getReturnType();
+            if (returnType != Type.VOID_TYPE) {
+                pop(v, returnType);
             }
         }
     }
