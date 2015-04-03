@@ -3129,6 +3129,12 @@ public class BlackBoxCodegenTestGenerated extends AbstractBlackBoxCodegenTest {
             String fileName = JetTestUtils.navigationMetadata("compiler/testData/codegen/box/elvis/primitive.kt");
             doTest(fileName);
         }
+
+        @TestMetadata("stringInterpolation.kt")
+        public void testStringInterpolation() throws Exception {
+            String fileName = JetTestUtils.navigationMetadata("compiler/testData/codegen/box/elvis/stringInterpolation.kt");
+            doTest(fileName);
+        }
     }
 
     @TestMetadata("compiler/testData/codegen/box/enum")
