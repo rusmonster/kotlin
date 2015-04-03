@@ -41,7 +41,6 @@ public class Concat : IntrinsicMethod() {
     override fun generateImpl(codegen: ExpressionCodegen, v: InstructionAdapter, returnType: Type, element: PsiElement?, arguments: List<JetExpression>, receiver: StackValue): Type {
 
         if (element is JetBinaryExpression && element.getOperationReference().getReferencedNameElementType() == JetTokens.PLUS) {
-            //not +=
             // LHS + RHS
             genStringBuilderConstructor(v)
             codegen.invokeAppend(element.getLeft())
@@ -69,18 +68,16 @@ public class Concat : IntrinsicMethod() {
         return object : MappedCallable(callable, {}) {
             override fun invokeMethodWithArguments(resolvedCall: ResolvedCall<*>, receiver: StackValue, returnType: Type, codegen: ExpressionCodegen): StackValue {
                 return StackValue.operation(returnType) {
-                        val arguments = resolvedCall.getCall().getValueArguments().map { it.getArgumentExpression() }
-                        val receiver = StackValue.receiver(resolvedCall, receiver, codegen, this)
-                        val actualType = generateImpl(codegen, it, returnType, resolvedCall.getCall().getCallElement(), arguments, receiver)
-                        StackValue.coerce(actualType, returnType, it)
-                    }
+                    val arguments = resolvedCall.getCall().getValueArguments().map { it.getArgumentExpression() }
+                    val actualType = generateImpl(
+                            codegen, it, returnType,
+                            resolvedCall.getCall().getCallElement(),
+                            arguments,
+                            StackValue.receiver(resolvedCall, receiver, codegen, this)
+                    )
+                    StackValue.coerce(actualType, returnType, it)
+                }
             }
         }
     }
 }
-
-fun main(args: Array<String>) {
-    val s: String = if (1 < 2) "" else "123"
-    s plus "123"
-}
-
