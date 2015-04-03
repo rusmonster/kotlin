@@ -146,50 +146,38 @@ class NumberCompare(val opToken: IElementType, opcode: Int, operandType: Type, l
     }
 
     override fun patchOpcode(opcode: Int, v: InstructionAdapter): Int {
-        var newOpcode = opcode
-        if (operandType == Type.FLOAT_TYPE || operandType == Type.DOUBLE_TYPE) {
-            if (opToken == JetTokens.GT || opToken == JetTokens.GTEQ) {
-                v.cmpl(operandType)
+        when (operandType) {
+            Type.FLOAT_TYPE, Type.DOUBLE_TYPE -> {
+                if (opToken == JetTokens.GT || opToken == JetTokens.GTEQ) {
+                    v.cmpl(operandType)
+                }
+                else {
+                    v.cmpg(operandType)
+                }
             }
-            else {
-                v.cmpg(operandType)
+            Type.LONG_TYPE -> {
+                v.lcmp()
+            }
+            else -> {
+                return opcode + (IF_ICMPEQ - IFEQ)
             }
         }
-        else if (operandType == Type.LONG_TYPE) {
-            v.lcmp()
-        }
-        else {
-            newOpcode += (IF_ICMPEQ - IFEQ)
-        }
-        return newOpcode
+        return opcode
     }
 
     companion object {
         fun getNumberCompareOpcode(opToken: IElementType): Int {
-            val opcode: Int
-            if (opToken == JetTokens.EQEQ || opToken == JetTokens.EQEQEQ) {
-                opcode = IFNE
+            return when (opToken) {
+                JetTokens.EQEQ, JetTokens.EQEQEQ -> IFNE
+                JetTokens.EXCLEQ, JetTokens.EXCLEQEQEQ -> IFEQ
+                JetTokens.GT -> IFLE
+                JetTokens.GTEQ -> IFLT
+                JetTokens.LT -> IFGE
+                JetTokens.LTEQ -> IFGT
+                else -> {
+                    throw UnsupportedOperationException("Don't know how to generate this condJump: " + opToken)
+                }
             }
-            else if (opToken == JetTokens.EXCLEQ || opToken == JetTokens.EXCLEQEQEQ) {
-                opcode = IFEQ
-            }
-            else if (opToken == JetTokens.GT) {
-                opcode = IFLE
-            }
-            else if (opToken == JetTokens.GTEQ) {
-                opcode = IFLT
-            }
-            else if (opToken == JetTokens.LT) {
-                opcode = IFGE
-            }
-            else if (opToken == JetTokens.LTEQ) {
-                opcode = IFGT
-            }
-            else {
-                throw UnsupportedOperationException("Don't know how to generate this condJump: " + opToken)
-            }
-
-            return opcode
         }
     }
 }
@@ -203,17 +191,11 @@ class ObjectCompare(val opToken: IElementType, opcode: Int, operandType: Type, l
 
     companion object {
         fun getObjectCompareOpcode(opToken: IElementType): Int {
-            val opcode: Int
-            if (opToken == JetTokens.EQEQEQ) {
-                opcode = IF_ACMPNE
+            return when (opToken) {
+                JetTokens.EQEQEQ -> IF_ACMPNE
+                JetTokens.EXCLEQEQEQ -> IF_ACMPEQ
+                else -> throw UnsupportedOperationException("don't know how to generate this condjump")
             }
-            else if (opToken == JetTokens.EXCLEQEQEQ) {
-                opcode = IF_ACMPEQ
-            }
-            else {
-                throw UnsupportedOperationException("don't know how to generate this condjump")
-            }
-            return opcode
         }
     }
 }
