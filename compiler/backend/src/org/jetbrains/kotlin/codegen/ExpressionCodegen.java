@@ -36,10 +36,7 @@ import org.jetbrains.kotlin.codegen.binding.CalculatedClosure;
 import org.jetbrains.kotlin.codegen.context.*;
 import org.jetbrains.kotlin.codegen.extensions.ExpressionCodegenExtension;
 import org.jetbrains.kotlin.codegen.inline.*;
-import org.jetbrains.kotlin.codegen.intrinsics.IntrinsicMethod;
-import org.jetbrains.kotlin.codegen.intrinsics.IntrinsicMethods;
-import org.jetbrains.kotlin.codegen.intrinsics.JavaClassProperty;
-import org.jetbrains.kotlin.codegen.intrinsics.Not;
+import org.jetbrains.kotlin.codegen.intrinsics.*;
 import org.jetbrains.kotlin.codegen.signature.BothSignatureWriter;
 import org.jetbrains.kotlin.codegen.stackvalue.BranchedValue;
 import org.jetbrains.kotlin.codegen.state.GenerationState;
@@ -2262,16 +2259,17 @@ public class ExpressionCodegen extends JetVisitor<StackValue, StackValue> implem
         final Type returnType = typeMapper.mapReturnType(accessibleFunctionDescriptor);
 
         if (callable instanceof ExtendedCallable) {
-            return StackValue.functionCall(returnType, new Function1<InstructionAdapter, Unit>() {
-                @Override
-                public Unit invoke(InstructionAdapter v) {
-                    ExtendedCallable callableMethod = (ExtendedCallable) callable;
-                    invokeMethodWithArguments(callableMethod, resolvedCall, receiver);
-
-                    StackValue.coerce(callableMethod.getReturnType(), returnType, v);
-                    return Unit.INSTANCE$;
-                }
-            });
+            return ((ExtendedCallable) callable).invokeMethodWithArguments(resolvedCall, receiver, returnType, this);
+            //return StackValue.functionCall(returnType, new Function1<InstructionAdapter, Unit>() {
+            //    @Override
+            //    public Unit invoke(InstructionAdapter v) {
+            //        ExtendedCallable callableMethod = (ExtendedCallable) callable;
+            //        invokeMethodWithArguments(callableMethod, resolvedCall, receiver);
+            //
+            //        StackValue.coerce(callableMethod.getReturnType(), returnType, v);
+            //        return Unit.INSTANCE$;
+            //    }
+            //});
         }
         else {
             StackValue newReceiver = StackValue.receiver(resolvedCall, receiver, this, null);
@@ -2283,6 +2281,16 @@ public class ExpressionCodegen extends JetVisitor<StackValue, StackValue> implem
 
             return ((IntrinsicMethod) callable).generate(this, returnType, call.getCallElement(), args, newReceiver);
         }
+    }
+
+    public void invokeMethodWithArguments(
+            @NotNull ExtendedCallable callable,
+            @NotNull ResolvedCall resolvedCall,
+            @NotNull StackValue receiver,
+            @NotNull Type returnType
+    ) {
+        invokeMethodWithArguments(callable, resolvedCall, receiver);
+        StackValue.coerce(callable.getReturnType(), returnType, v);
     }
 
     @Nullable
