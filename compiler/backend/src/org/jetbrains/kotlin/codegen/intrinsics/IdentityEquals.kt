@@ -52,18 +52,16 @@ public class IdentityEquals : LazyIntrinsicMethod() {
 
     override fun toCallable(fd: FunctionDescriptor, isSuper: Boolean, resolvedCall: ResolvedCall<*>, codegen: ExpressionCodegen): ExtendedCallable {
         val callable = codegen.getState().getTypeMapper().mapToCallableMethod(fd, false, codegen.getContext())
-        return object : MappedCallable(callable, {})  {
+        return object : MappedCallable(callable)  {
             override fun invokeMethodWithArguments(resolvedCall: ResolvedCall<*>, receiver: StackValue, returnType: Type, codegen: ExpressionCodegen): StackValue {
                 val element = resolvedCall.getCall().getCallElement()
                 val left: StackValue
                 val right: StackValue
                 if (element is JetCallExpression) {
-                    val receiver = StackValue.receiver(resolvedCall, receiver, codegen, this)
-                    left = receiver
-                    right = codegen.gen(resolvedCall.getValueArgumentsByIndex().single().getArguments().single().getArgumentExpression())
+                    left = StackValue.receiver(resolvedCall, receiver, codegen, this)
+                    right = codegen.gen(resolvedCall.getValueArgumentsByIndex()!!.single().getArguments().single().getArgumentExpression())
                 }
                 else {
-                    assert(element is JetBinaryExpression)
                     val e = element as JetBinaryExpression
                     left = codegen.gen(e.getLeft())
                     right = codegen.gen(e.getRight())
