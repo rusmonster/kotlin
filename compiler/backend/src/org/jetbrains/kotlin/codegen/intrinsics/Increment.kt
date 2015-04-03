@@ -61,7 +61,7 @@ public class Increment(private val myDelta: Int) : LazyIntrinsicMethod() {
         val method = codegen.getState().getTypeMapper().mapToCallableMethod(fd, false, codegen.getContext())
         return MappedCallable(method) {
             val jetExpression = resolvedCall.getCall().getCalleeExpression()
-            assert(jetExpression !is JetPrefixExpression, "There should be postfix increment ${jetExpression!!.getText()}")
+            assert(jetExpression !is JetPrefixExpression) { "There should be postfix increment ${jetExpression!!.getText()}" }
             genIncrement(getReturnType(), myDelta, it)
         }
     }
