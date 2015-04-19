@@ -115,6 +115,7 @@
         <include name="js/js.inliner/src"/>
         <include name="js/js.parser/src"/>
         <include name="js/js.serializer/src"/>
+        <include name="libraries/stdlib/src/kotlin/modules"/>
     </dirset>
 
     <property name="idea.out" value="${basedir}/out/production"/>
